@@ -1,0 +1,14 @@
+[project]
+name = "meteorologia"
+version = "0.1.0"
+description = "Decodificador de METAR"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "pydantic>=2.0.0",
+]
+
+[tool.uv]
+managed = true

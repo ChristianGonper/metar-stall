@@ -1,0 +1,17 @@
+.venv/
+.uv-cache/
+__pycache__/
+*.pyc
+
+frontend/node_modules/
+frontend/dist/
+frontend/.npm-cache/
+frontend/.env
+
+*.log
+backend.out.log
+backend.err.log
+
+.gemini/
+.DS_Store
+Thumbs.db

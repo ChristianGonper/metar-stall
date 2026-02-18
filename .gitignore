@@ -13,5 +13,7 @@ backend.out.log
 backend.err.log
 
 .gemini/
+AGENTS.md
+MEJORAS_PROPUESTAS.md
 .DS_Store
 Thumbs.db

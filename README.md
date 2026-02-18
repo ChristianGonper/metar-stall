@@ -63,6 +63,14 @@ Asegúrate de que el archivo `.env` apunte a la dirección de tu backend:
 VITE_API_URL=http://127.0.0.1:8000
 ```
 
+### Backend (variables opcionales)
+Puedes configurar el backend con variables de entorno:
+```env
+METAR_STALL_HOST=127.0.0.1
+METAR_STALL_PORT=8000
+METAR_STALL_ALLOW_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+```
+
 ---
 
 ## Cómo Probar la Web
@@ -84,6 +92,24 @@ Con backend y frontend levantados, valida el flujo completo así:
    - Temperatura, punto de rocío y QNH en hPa.
 
 Prueba también con los casos de `Ejemplos METAR.md` para validar escenarios de lluvia, niebla, tormenta y baja visibilidad.
+
+---
+
+## Pruebas automáticas (backend)
+
+Desde la raíz:
+```powershell
+$env:UV_CACHE_DIR="$PWD\\.uv-cache"
+uv run --no-project --with fastapi --with uvicorn --with pydantic --with pytest --with httpx python -m pytest -q
+```
+
+---
+
+## Integración continua (CI)
+
+El repositorio incluye un workflow en `.github/workflows/ci.yml` que ejecuta:
+- Backend: `pytest`
+- Frontend: `npm run lint` y `npm run build`
 
 ---
 

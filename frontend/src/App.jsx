@@ -239,6 +239,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [apiStatus, setApiStatus] = useState('checking')
+  const demoMetar = 'METAR LEMD 121330Z 21015G25KT 180V250 9999 FEW030 14/05 Q1012='
 
   useEffect(() => {
     const checkHealth = async () => {
@@ -359,10 +360,35 @@ function App() {
         )}
 
         {!data && !loading && (
-          <div className="neo-card rounded-2xl p-12 md:p-16 border border-white/10 flex flex-col items-center justify-center text-cyan-100/50">
-            <Activity size={46} className="mb-4" />
-            <p className="uppercase tracking-[0.3em] text-xs">Esperando datos METAR</p>
-          </div>
+          <section className="neo-card rounded-2xl p-10 md:p-14 border border-cyan-300/20 text-cyan-100">
+            <div className="max-w-3xl mx-auto flex flex-col items-center text-center gap-5">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-1 text-[11px] uppercase tracking-[0.2em] font-semibold">
+                <Activity size={14} />
+                Descubre METAR Stall
+              </div>
+              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-cyan-50">
+                Convierte un METAR crudo en una lectura clara y útil
+              </h2>
+              <p className="text-sm md:text-base text-cyan-100/70 leading-relaxed">
+                Pega un mensaje real desde tu práctica y obtén una interpretación rápida de viento,
+                visibilidad, fenómenos, nubes, temperatura y QNH.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => handleDecode(demoMetar)}
+                  className="bg-cyan-300 text-slate-950 px-5 py-3 rounded-xl hover:bg-cyan-200 transition-colors font-semibold uppercase tracking-[0.16em] text-xs"
+                >
+                  Probar ejemplo guiado
+                </button>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="border border-cyan-300/30 bg-cyan-300/5 text-cyan-100 px-5 py-3 rounded-xl hover:bg-cyan-300/10 transition-colors font-semibold uppercase tracking-[0.16em] text-xs"
+                >
+                  Escribir mi METAR
+                </button>
+              </div>
+            </div>
+          </section>
         )}
 
         {loading && (

@@ -4,8 +4,7 @@ import {
   AlertTriangle, RefreshCw, Plus, X, ChevronRight,
   Activity, CloudFog, Sun, CloudSun,
 } from 'lucide-react'
-
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+import { SpanishMetarParser } from './decoder'
 
 // ── Token colour map for the METAR visual explainer ──────────────────────────
 const TOKEN_GROUPS = [
@@ -379,38 +378,20 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [modal, setModal] = useState(false)
-  const [apiStatus, setApiStatus] = useState('checking')
-
-  useEffect(() => {
-    fetch(`${API}/health`)
-      .then(r => setApiStatus(r.ok ? 'online' : 'offline'))
-      .catch(() => setApiStatus('offline'))
-  }, [])
+  const [apiStatus, setApiStatus] = useState('online')
 
   async function decode(metar) {
     const m = metar.trim()
     if (!m) { setError('El METAR está vacío.'); return }
     setLoading(true); setError(null)
     try {
-      const res = await fetch(`${API}/decode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ metar: m }),
-      })
-      if (!res.ok) {
-        const p = await res.json().catch(() => ({}))
-        throw new Error(p?.detail || 'Error al decodificar')
-      }
-      const result = await res.json()
+      // Small artificial delay for UX
+      await new Promise(resolve => setTimeout(resolve, 600))
+      const parser = new SpanishMetarParser(m)
+      const result = parser.parse()
       setData(result)
-      setApiStatus('online')
     } catch (err) {
-      if (err instanceof TypeError) {
-        setApiStatus('offline')
-        setError(`Sin conexión con el backend en ${API}. ¿Está activo?`)
-      } else {
-        setError(err.message)
-      }
+      setError(err.message)
     } finally { setLoading(false) }
   }
 

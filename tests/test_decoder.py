@@ -23,3 +23,14 @@ def test_decoder_handles_cavok():
     assert decoded["visibility"]["main"] == "CAVOK"
     assert decoded["weather"] == []
     assert "Cielo despejado (CAVOK)" in decoded["clouds"]
+
+
+def test_decoder_keeps_rvr_out_of_visibility_text():
+    metar = "METAR LEMD 121400Z 22012KT 0800 R32L/0600 R32R/0900 FG BKN002 08/07 Q1006="
+    decoded = SpanishMetarParser(metar).parse()
+
+    assert decoded["visibility"]["text"] == "Visibilidad de 800 metros"
+    assert decoded["rvr"] == [
+        "RVR en pista 32L: 600 metros",
+        "RVR en pista 32R: 900 metros",
+    ]

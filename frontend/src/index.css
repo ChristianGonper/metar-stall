@@ -1,62 +1,113 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
+/* ── Design tokens ───────────────────────────────────────────────────────── */
 :root {
   color-scheme: dark;
-  --bg-0: #060b16;
-  --bg-1: #0d1630;
-  --bg-2: #0b1f33;
-  --line: rgba(125, 211, 252, 0.15);
-  --text-main: #e6f4ff;
-  --text-muted: rgba(230, 244, 255, 0.68);
+
+  /* Base surfaces */
+  --bg:        #09090b;        /* true near-black */
+  --surface:   #111116;        /* card background  */
+  --surface-2: #18181f;        /* elevated surface */
+  --border:    rgba(255,255,255,.07);
+  --border-hi: rgba(96,165,250,.25);   /* blue-400/25 */
+
+  /* Text */
+  --text:      #f4f4f8;
+  --text-2:    rgba(244,244,248,.55);
+  --text-3:    rgba(244,244,248,.30);
+
+  /* Accent — blue */
+  --accent:    #3b82f6;         /* blue-500 */
+  --accent-hi: #60a5fa;         /* blue-400 */
+  --accent-bg: rgba(59,130,246,.10);
+  --accent-border: rgba(59,130,246,.22);
+
+  /* Status colours */
+  --green-txt: #86efac;
+  --green-bg:  rgba(134,239,172,.10);
+  --red-txt:   #fca5a5;
+  --red-bg:    rgba(252,165,165,.10);
+  --amber-txt: #fbbf24;
+  --amber-bg:  rgba(251,191,36,.10);
 }
 
-* {
-  box-sizing: border-box;
-}
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
-  color: var(--text-main);
-  font-family: 'Space Grotesk', 'IBM Plex Sans', 'Avenir Next', 'Segoe UI Variable', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-  background:
-    radial-gradient(1200px 900px at 10% -20%, rgba(56, 189, 248, 0.2), transparent 62%),
-    radial-gradient(900px 700px at 100% 0%, rgba(34, 211, 238, 0.14), transparent 58%),
-    linear-gradient(165deg, var(--bg-0), var(--bg-1) 48%, var(--bg-2));
+  /* Very subtle blue radial glow on upper-left */
+  background-image:
+    radial-gradient(ellipse 900px 600px at -10% -15%,
+      rgba(59,130,246,.07) 0%, transparent 70%);
 }
 
-code,
-.font-mono {
-  font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+code, .mono {
+  font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 }
 
-.neo-card {
-  background: linear-gradient(180deg, rgba(8, 16, 34, 0.78), rgba(8, 16, 34, 0.64));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 30px rgba(3, 9, 20, 0.4);
+/* ── Card ────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
 }
 
-.emoji,
-[data-emoji='true'] {
-  display: inline-block;
-  font-size: 1em;
-  line-height: 1;
-  vertical-align: -0.08em;
+.card-elevated {
+  background: var(--surface-2);
+  border: 1px solid var(--border-hi);
+  border-radius: 16px;
 }
 
+/* ── Accent pill / tag ───────────────────────────────────────────────────── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent-hi);
+}
+
+/* ── Subtle divider ──────────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Fade-in entrance animation ──────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.fade-up {
+  animation: fadeUp .35s cubic-bezier(.4,0,.2,1) both;
+}
+.fade-up-delay-1 { animation-delay: .06s; }
+.fade-up-delay-2 { animation-delay: .12s; }
+.fade-up-delay-3 { animation-delay: .18s; }
+
+/* ── Spin (loading) ──────────────────────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .8s linear infinite; }
+
+/* ── Reduced motion ──────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
   }
 }

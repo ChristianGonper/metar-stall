@@ -1,162 +1,285 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
-  Wind,
-  Eye,
-  Cloud,
-  CloudFog,
-  CloudSun,
-  Sun,
-  Thermometer,
-  Compass,
-  Layers,
-  Navigation,
-  AlertTriangle,
-  Terminal,
-  Plus,
-  X,
-  RefreshCcw,
-  Activity,
-  Radar,
-  Dot,
+  Wind, Eye, Cloud, Thermometer, Gauge, Radar,
+  AlertTriangle, RefreshCw, Plus, X, ChevronRight,
+  Activity, CloudFog, Sun, CloudSun,
 } from 'lucide-react'
-import { clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
 
-function cn(...inputs) {
-  return twMerge(clsx(inputs))
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+
+// ── Token colour map for the METAR visual explainer ──────────────────────────
+const TOKEN_GROUPS = [
+  { id: 'type', label: 'Tipo', color: '#60a5fa', regex: /^(METAR|SPECI)$/ },
+  { id: 'auto', label: 'AUTO', color: '#fbbf24', regex: /^AUTO$/ },
+  { id: 'station', label: 'Estación', color: '#a78bfa', regex: /^[A-Z]{4}$/ },
+  { id: 'time', label: 'Fecha/Hora', color: '#34d399', regex: /^\d{6}Z$/ },
+  { id: 'wind', label: 'Viento', color: '#38bdf8', regex: /^(\d{3}|VRB)\d{2,3}(G\d{2,3})?KT$/ },
+  { id: 'windvar', label: 'Var. viento', color: '#38bdf8', regex: /^\d{3}V\d{3}$/ },
+  { id: 'vis', label: 'Visibilidad', color: '#a3e635', regex: /^(\d{4}|CAVOK|NOSIG)$/ },
+  { id: 'rvr', label: 'VPR', color: '#fb923c', regex: /^R\d{2}[LRC]?\// },
+  {
+    id: 'wx', label: 'Fenómenos', color: '#f472b6',
+    regex: /^[-+]?(VC)?(MI|BC|PR|DR|BL|SH|TS|FZ)?(DZ|RA|SN|SG|IC|PL|GR|GS|BR|FG|FU|VA|DU|SA|HZ){1,2}$/
+  },
+  { id: 'cloud', label: 'Nubes', color: '#94a3b8', regex: /^(FEW|SCT|BKN|OVC|NSC|NCD)\d{0,3}(CB|TCU)?$/ },
+  { id: 'temp', label: 'Temp/Rocío', color: '#f97316', regex: /^M?\d{2}\/M?\d{2}$/ },
+  { id: 'qnh', label: 'QNH', color: '#e879f9', regex: /^Q\d{4}$/ },
+  { id: 'trend', label: 'Tendencia', color: '#fbbf24', regex: /^(BECMG|TEMPO|NOSIG)$/ },
+]
+
+function isStationToken(token, index, tokens) {
+  if (!/^[A-Z]{4}$/.test(token)) return false
+  const prev = tokens[index - 1]
+  return index === 0 || prev === 'METAR' || prev === 'SPECI'
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+function classifyToken(token, index, tokens) {
+  if (isStationToken(token, index, tokens)) {
+    return TOKEN_GROUPS.find(g => g.id === 'station') || null
+  }
+  for (const g of TOKEN_GROUPS) {
+    if (g.id === 'station') continue
+    if (g.regex.test(token)) return g
+  }
+  return null
+}
 
-const WindRose = ({ degrees, isVariable = false }) => {
-  const parsedDegrees =
-    typeof degrees === 'number' ? degrees : Number.parseInt(String(degrees ?? ''), 10)
-  const hasDirection = Number.isFinite(parsedDegrees) && !isVariable
-  const normalizedDegrees = hasDirection ? ((parsedDegrees % 360) + 360) % 360 : 0
-  const ticks = Array.from({ length: 12 }, (_, i) => i * 30)
+// ── Wind rose ─────────────────────────────────────────────────────────────────
+function WindRose({ degrees, isVariable }) {
+  const deg = Number.isFinite(Number(degrees)) ? Number(degrees) : null
+  const ticks = Array.from({ length: 8 }, (_, i) => i * 45)
 
   return (
-    <div className="relative h-24 w-24 md:h-28 md:w-28 shrink-0 rounded-full border border-cyan-300/30 bg-cyan-400/5">
-      <div className="absolute inset-2 rounded-full border border-cyan-300/20" />
-
-      {ticks.map((deg) => (
-        <div
-          key={`tick-${deg}`}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-          style={{ transform: `translate(-50%, -50%) rotate(${deg}deg)` }}
-        >
-          <span
-            className={cn('block rounded-full bg-cyan-200/80', deg % 90 === 0 ? 'h-3 w-[2px]' : 'h-2 w-px')}
-            style={{ transform: 'translateY(-38px)' }}
-          />
-        </div>
-      ))}
-
-      <span className="absolute left-1/2 -top-3 -translate-x-1/2 text-xs md:text-sm font-bold tracking-[0.1em] text-cyan-100 drop-shadow-[0_0_8px_rgba(34,211,238,0.55)]">
-        N
-      </span>
-      <span className="absolute -right-2 top-1/2 -translate-y-1/2 text-xs md:text-sm font-bold tracking-[0.1em] text-cyan-100 drop-shadow-[0_0_8px_rgba(34,211,238,0.55)]">
-        E
-      </span>
-      <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-xs md:text-sm font-bold tracking-[0.1em] text-cyan-100 drop-shadow-[0_0_8px_rgba(34,211,238,0.55)]">
-        S
-      </span>
-      <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-xs md:text-sm font-bold tracking-[0.1em] text-cyan-100 drop-shadow-[0_0_8px_rgba(34,211,238,0.55)]">
-        O
-      </span>
-
-      {hasDirection && (
-        <div
-          className="absolute bottom-1/2 left-1/2 h-10 w-0.5 -translate-x-1/2 origin-bottom rounded-full bg-cyan-200 shadow-[0_0_8px_rgba(103,232,249,0.8)] transition-transform duration-500"
-          style={{ transform: `translateX(-50%) rotate(${normalizedDegrees}deg)` }}
-        >
-          <div className="absolute -top-1.5 left-1/2 h-0 w-0 -translate-x-1/2 border-l-[5px] border-r-[5px] border-b-[10px] border-l-transparent border-r-transparent border-b-cyan-200" />
-        </div>
-      )}
-
-      <div className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-cyan-100/60 bg-cyan-300" />
+    <div style={{ position: 'relative', width: 88, height: 88, flexShrink: 0 }}>
+      <svg viewBox="0 0 88 88" style={{ width: 88, height: 88 }}>
+        {/* outer ring */}
+        <circle cx="44" cy="44" r="42" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="1" />
+        {/* inner ring */}
+        <circle cx="44" cy="44" r="30" fill="none" stroke="rgba(255,255,255,.04)" strokeWidth="1" />
+        {/* ticks */}
+        {ticks.map(d => {
+          const r = (d * Math.PI) / 180
+          const x1 = 44 + 40 * Math.sin(r)
+          const y1 = 44 - 40 * Math.cos(r)
+          const x2 = 44 + 35 * Math.sin(r)
+          const y2 = 44 - 35 * Math.cos(r)
+          return <line key={d} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,.18)" strokeWidth={d % 90 === 0 ? 2 : 1} />
+        })}
+        {/* Cardinal labels */}
+        {[['N', 44, 4], ['E', 84, 44], ['S', 44, 85], ['O', 4, 44]].map(([l, x, y]) => (
+          <text key={l} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
+            style={{ fill: 'rgba(255,255,255,.45)', fontSize: 9, fontFamily: 'Inter', fontWeight: 600 }}>
+            {l}
+          </text>
+        ))}
+        {/* Arrow */}
+        {!isVariable && deg !== null && (
+          <g transform={`rotate(${deg}, 44, 44)`}>
+            <line x1="44" y1="44" x2="44" y2="16"
+              stroke="var(--accent-hi,#60a5fa)" strokeWidth="2" strokeLinecap="round" />
+            <polygon points="44,48 40.5,40 47.5,40"
+              fill="var(--accent-hi,#60a5fa)" />
+          </g>
+        )}
+        {isVariable && (
+          <circle cx="44" cy="44" r="6" fill="none" stroke="var(--accent-hi,#60a5fa)" strokeWidth="1.5" strokeDasharray="3 3" />
+        )}
+        {/* Centre dot */}
+        {(isVariable || deg === null) && <circle cx="44" cy="44" r="3" fill="var(--accent-hi,#60a5fa)" />}
+      </svg>
     </div>
   )
 }
 
-const InstrumentCard = ({ title, value, unit, icon: Icon, detail, tone = 'amber', extra }) => {
-  const toneMap = {
-    amber: 'text-amber-200 border-amber-300/25',
-    cyan: 'text-cyan-200 border-cyan-300/25',
-    lime: 'text-lime-200 border-lime-300/25',
-  }
-
+// ── Instrument card ───────────────────────────────────────────────────────────
+function Card({ title, icon: Icon, children, className = '', delay = 0 }) {
   return (
-    <section
-      className={cn(
-        'neo-card rounded-2xl p-6 border flex flex-col gap-4 relative overflow-hidden',
-        toneMap[tone]
-      )}
+    <div
+      className={`card p-5 flex flex-col gap-3 fade-up fade-up-delay-${delay} ${className}`}
     >
-      <div className="flex items-start justify-between">
-        <h3 className="text-[11px] uppercase tracking-[0.22em] font-semibold opacity-80">{title}</h3>
-        {Icon ? <Icon size={24} className="opacity-75" /> : null}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--text-2)' }}>
+          {title}
+        </span>
+        {Icon && <Icon size={16} style={{ color: 'var(--text-3)', flexShrink: 0 }} />}
       </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-semibold tracking-tight">{value || '---'}</span>
-          {unit && <span className="text-xs uppercase tracking-widest opacity-75">{unit}</span>}
-        </div>
-        {extra}
-      </div>
-
-      {detail && <p className="text-xs opacity-70 border-t border-white/10 pt-3 leading-relaxed">{detail}</p>}
-    </section>
+      {children}
+    </div>
   )
 }
 
-const MetarModal = ({ isOpen, onClose, onDecode }) => {
-  const [input, setInput] = useState('')
+function BigValue({ val, unit }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+      <span style={{ fontSize: 36, fontWeight: 600, lineHeight: 1, color: 'var(--text)' }}>
+        {val || '—'}
+      </span>
+      {unit && (
+        <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-3)' }}>
+          {unit}
+        </span>
+      )}
+    </div>
+  )
+}
 
-  if (!isOpen) return null
+function Detail({ text }) {
+  if (!text) return null
+  return (
+    <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5, marginTop: 4 }}>
+      {text}
+    </p>
+  )
+}
+
+function stripTrailingPeriod(text) {
+  if (!text) return text
+  return text.replace(/\.\s*$/, '')
+}
+
+function capitalizeFirst(text) {
+  if (!text) return text
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+// ── METAR token visualiser ────────────────────────────────────────────────────
+function MetarVisualiser({ raw }) {
+  const [hovered, setHovered] = useState(null)
+  const tokens = raw.split(/\s+/)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-      <div className="w-full max-w-2xl neo-card rounded-2xl p-8 border border-cyan-300/20">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-cyan-400/10 border border-cyan-300/20">
-              <Terminal className="text-cyan-200" size={20} />
-            </div>
-            <h2 className="text-2xl font-semibold text-cyan-100 tracking-tight">Ingresar METAR</h2>
+    <div>
+      {/* token strip */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 4px', marginBottom: 14 }}>
+        {tokens.map((tok, i) => {
+          const g = classifyToken(tok, i, tokens)
+          const isHov = hovered === i
+          return (
+            <button
+              key={i}
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              onFocus={() => setHovered(i)}
+              onBlur={() => setHovered(null)}
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: 13,
+                fontWeight: 500,
+                padding: '3px 8px',
+                borderRadius: 6,
+                border: `1px solid ${g ? g.color + '44' : 'rgba(255,255,255,.08)'}`,
+                background: g ? g.color + (isHov ? '22' : '0d') : 'rgba(255,255,255,.04)',
+                color: g ? g.color : 'var(--text-3)',
+                cursor: g ? 'default' : 'default',
+                transition: 'background .15s, border-color .15s',
+                lineHeight: 1.4,
+              }}
+            >
+              {tok}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* legend */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
+        {TOKEN_GROUPS.filter(g => (
+          g.id === 'station'
+            ? tokens.some((t, i) => isStationToken(t, i, tokens))
+            : tokens.some(t => g.regex.test(t))
+        )).map(g => (
+          <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: g.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{g.label}</span>
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="text-cyan-100/60 hover:text-cyan-100 transition-colors"
-          >
-            <X size={22} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Input modal ───────────────────────────────────────────────────────────────
+function MetarModal({ open, onClose, onDecode }) {
+  const [input, setInput] = useState('')
+  if (!open) return null
+
+  const submit = () => { if (input.trim()) { onDecode(input); onClose() } }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 16,
+      background: 'rgba(0,0,0,.72)',
+      backdropFilter: 'blur(8px)',
+    }}>
+      <div className="card-elevated" style={{ width: '100%', maxWidth: 640, padding: 28 }}>
+        {/* header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--accent-hi)', marginBottom: 4 }}>
+              Decodificador METAR
+            </p>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>Ingresar mensaje</h2>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4 }} aria-label="Cerrar">
+            <X size={20} />
           </button>
         </div>
-
-        <p className="text-sm text-cyan-50/70 mb-4">
-          Pega el mensaje METAR completo para generar un informe técnico y narrativo.
-        </p>
 
         <textarea
           autoFocus
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ej: METAR LEMD 121330Z 21015G25KT 180V250 9999 FEW030 14/05 Q1012="
-          className="w-full h-32 bg-slate-950/70 border border-cyan-200/20 rounded-xl p-4 text-cyan-100 font-mono focus:border-cyan-300/70 outline-none transition-all resize-none"
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && e.ctrlKey && submit()}
+          placeholder="Ej: METAR LEMD 121330Z 21015G25KT 9999 FEW030 14/05 Q1012="
+          style={{
+            width: '100%', height: 110,
+            background: 'rgba(255,255,255,.04)',
+            border: '1px solid var(--border)',
+            borderRadius: 10, padding: '12px 14px',
+            color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 13, resize: 'none', outline: 'none',
+            transition: 'border-color .15s',
+          }}
+          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+          onBlur={e => e.target.style.borderColor = 'var(--border)'}
         />
 
-        <div className="flex gap-4 mt-8">
+        <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8, marginBottom: 20 }}>
+          Ctrl + Enter para decodificar.
+        </p>
+
+        <div style={{ display: 'flex', gap: 10 }}>
           <button
-            onClick={() => {
-              onDecode(input)
-              onClose()
-            }}
+            onClick={submit}
             disabled={!input.trim()}
-            className="flex-1 bg-cyan-300 text-slate-950 font-semibold py-3 rounded-xl hover:bg-cyan-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-[0.18em] text-xs"
+            style={{
+              flex: 1,
+              background: 'var(--accent)', color: '#fff',
+              border: 'none', borderRadius: 10,
+              padding: '11px 0', fontWeight: 600,
+              fontSize: 13, letterSpacing: '.06em',
+              cursor: input.trim() ? 'pointer' : 'not-allowed',
+              opacity: input.trim() ? 1 : .45,
+              transition: 'opacity .15s, background .15s',
+            }}
+            onMouseEnter={e => { if (input.trim()) e.target.style.background = 'var(--accent-hi)' }}
+            onMouseLeave={e => e.target.style.background = 'var(--accent)'}
           >
             Decodificar
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '11px 18px',
+              background: 'rgba(255,255,255,.05)',
+              border: '1px solid var(--border)',
+              borderRadius: 10, color: 'var(--text-2)',
+              fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            Cancelar
           </button>
         </div>
       </div>
@@ -164,388 +287,400 @@ const MetarModal = ({ isOpen, onClose, onDecode }) => {
   )
 }
 
-const parseVisibilityMeters = (mainValue) => {
-  const text = String(mainValue || '').toLowerCase()
-  if (!text) return null
-  if (text.includes('cavok') || text.includes('10 km o más')) return 10000
-
-  const metersMatch = text.match(/(\d+)\s*m\b/)
-  if (metersMatch) return Number.parseInt(metersMatch[1], 10)
-
-  const kmMatch = text.match(/(\d+)\s*km\b/)
-  if (kmMatch) return Number.parseInt(kmMatch[1], 10) * 1000
-
-  const rawDigits = text.match(/^\d{4}$/)
-  if (rawDigits) return Number.parseInt(rawDigits[0], 10)
-
-  return null
+// ── Visibility icon helper ────────────────────────────────────────────────────
+function visIcon(main, weather, clouds) {
+  const t = String(main || '').toLowerCase()
+  const wx = (weather || []).join(' ').toLowerCase()
+  const cl = (clouds || []).join(' ').toUpperCase()
+  const m = (() => {
+    if (t.includes('cavok') || t.includes('10 km')) return 10000
+    const m1 = t.match(/(\d+)\s*m\b/); if (m1) return +m1[1]
+    const m2 = t.match(/(\d+)\s*km\b/); if (m2) return +m2[1] * 1000
+    return null
+  })()
+  const fog = /(niebla|neblina|calima|fog|mist|haze)/.test(`${t} ${wx}`)
+  const ovc = /OVC|COMPLETAMENTE/.test(cl)
+  const bkn = /BKN|PARCIALMENTE/.test(cl)
+  if (fog || (m !== null && m < 3000)) return { Icon: CloudFog, label: 'Reducida', col: '#fb923c' }
+  if (ovc) return { Icon: Cloud, label: 'Cubierto', col: '#94a3b8' }
+  if (bkn || (m !== null && m < 8000)) return { Icon: CloudSun, label: 'Parcial', col: '#60a5fa' }
+  return { Icon: Sun, label: 'Buena', col: '#fbbf24' }
 }
 
-const getVisibilityVisual = ({ visibilityMain, visibilityText, weather, clouds }) => {
-  const normalizedMain = String(visibilityMain || '').toUpperCase()
-  const normalizedText = String(visibilityText || '').toLowerCase()
-  const weatherText = (weather || []).join(' ').toLowerCase()
-  const cloudText = (clouds || []).join(' ').toUpperCase()
-  const visibilityMeters = parseVisibilityMeters(visibilityMain)
-
-  const hasOvercast = /OVC|COMPLETAMENTE CUBIERTO|8 OCTAS/.test(cloudText)
-  const hasBroken = /BKN|PARCIALMENTE CUBIERTO|5 A 7 OCTAS/.test(cloudText)
-  const hasFogLike = /(niebla|neblina|calima|humo|bruma|fog|mist|haze)/.test(
-    `${normalizedText} ${weatherText}`
+// ── Empty state ───────────────────────────────────────────────────────────────
+function EmptyState({ onDemo, onOpen }) {
+  return (
+    <div className="card fade-up" style={{ padding: '60px 32px', textAlign: 'center' }}>
+      <div className="pill" style={{ justifyContent: 'center', margin: '0 auto 20px' }}>
+        <Activity size={12} /> Listo para decodificar
+      </div>
+      <h2 style={{ margin: '0 0 10px', fontSize: 24, fontWeight: 600 }}>
+        Convierte un METAR en lenguaje claro
+      </h2>
+      <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.6, maxWidth: 460, margin: '0 auto 28px' }}>
+        Pega cualquier mensaje METAR de aeropuertos españoles y obtén viento, visibilidad, nubes, temperatura y QNH de un vistazo.
+      </p>
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <button
+          id="btn-demo"
+          onClick={onDemo}
+          style={{
+            background: 'var(--accent)', color: '#fff',
+            border: 'none', borderRadius: 10,
+            padding: '10px 20px', fontWeight: 600,
+            fontSize: 13, cursor: 'pointer', letterSpacing: '.04em',
+          }}
+        >
+          Ver ejemplo guiado
+        </button>
+        <button
+          id="btn-open-modal"
+          onClick={onOpen}
+          style={{
+            background: 'none',
+            border: '1px solid var(--border)',
+            borderRadius: 10, color: 'var(--text-2)',
+            padding: '10px 20px', fontSize: 13, cursor: 'pointer',
+          }}
+        >
+          Escribir mi METAR
+        </button>
+      </div>
+    </div>
   )
-
-  if (normalizedMain.includes('CAVOK') || (visibilityMeters !== null && visibilityMeters >= 9000 && !hasBroken && !hasOvercast)) {
-    return {
-      icon: Sun,
-      label: 'Despejado',
-      classes: 'text-amber-200 border-amber-200/40 bg-amber-300/10',
-    }
-  }
-
-  if (hasOvercast) {
-    return {
-      icon: Cloud,
-      label: 'Overcast',
-      classes: 'text-slate-200 border-slate-300/40 bg-slate-300/10',
-    }
-  }
-
-  if (hasFogLike || (visibilityMeters !== null && visibilityMeters < 3000)) {
-    return {
-      icon: CloudFog,
-      label: 'Baja',
-      classes: 'text-orange-200 border-orange-300/40 bg-orange-300/10',
-    }
-  }
-
-  if (hasBroken || (visibilityMeters !== null && visibilityMeters < 8000)) {
-    return {
-      icon: CloudSun,
-      label: 'Parcial',
-      classes: 'text-cyan-200 border-cyan-300/40 bg-cyan-300/10',
-    }
-  }
-
-  return {
-    icon: CloudSun,
-    label: 'Variable',
-    classes: 'text-cyan-200 border-cyan-300/40 bg-cyan-300/10',
-  }
 }
 
-function App() {
+// ── Main App ──────────────────────────────────────────────────────────────────
+const DEMO = 'METAR LEMD 121330Z 21015G25KT 180V250 9999 FEW030 14/05 Q1012='
+
+export default function App() {
   const [data, setData] = useState(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [modal, setModal] = useState(false)
   const [apiStatus, setApiStatus] = useState('checking')
-  const demoMetar = 'METAR LEMD 121330Z 21015G25KT 180V250 9999 FEW030 14/05 Q1012='
 
   useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/health`)
-        setApiStatus(res.ok ? 'online' : 'offline')
-      } catch {
-        setApiStatus('offline')
-      }
-    }
-    checkHealth()
+    fetch(`${API}/health`)
+      .then(r => setApiStatus(r.ok ? 'online' : 'offline'))
+      .catch(() => setApiStatus('offline'))
   }, [])
 
-  const handleDecode = async (metar) => {
-    const normalizedMetar = metar.trim()
-    if (!normalizedMetar) {
-      setError('El METAR está vacío.')
-      return
-    }
-
-    setLoading(true)
-    setError(null)
+  async function decode(metar) {
+    const m = metar.trim()
+    if (!m) { setError('El METAR está vacío.'); return }
+    setLoading(true); setError(null)
     try {
-      const response = await fetch(`${API_BASE_URL}/decode`, {
+      const res = await fetch(`${API}/decode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ metar: normalizedMetar }),
+        body: JSON.stringify({ metar: m }),
       })
-
-      if (!response.ok) {
-        let detail = 'Error al decodificar'
-        try {
-          const payload = await response.json()
-          if (payload?.detail) detail = payload.detail
-        } catch {
-          // Keep default error message when body is not JSON.
-        }
-        throw new Error(detail)
+      if (!res.ok) {
+        const p = await res.json().catch(() => ({}))
+        throw new Error(p?.detail || 'Error al decodificar')
       }
-
-      const result = await response.json()
+      const result = await res.json()
       setData(result)
       setApiStatus('online')
     } catch (err) {
       if (err instanceof TypeError) {
         setApiStatus('offline')
-        setError(`No se pudo conectar con el backend en ${API_BASE_URL}. Verifica que esté activo.`)
+        setError(`Sin conexión con el backend en ${API}. ¿Está activo?`)
       } else {
         setError(err.message)
       }
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
-  const statusTone = apiStatus === 'online' ? 'bg-lime-300/20 text-lime-200' : 'bg-red-300/20 text-red-200'
-  const windDirectionText = String(data?.wind?.direction || '').toLowerCase()
-  const isVariableWind =
-    windDirectionText.includes('variable') || windDirectionText.includes('vrb')
-  const condensedReportText = (() => {
-    const text = String(data?.report_text || '').trim()
-    if (!text) return ''
-    const firstPeriodIndex = text.indexOf('.')
-    if (firstPeriodIndex === -1) return text
-    return text.slice(firstPeriodIndex + 1).trim()
-  })()
-  const visibilityVisual = getVisibilityVisual({
-    visibilityMain: data?.visibility?.main,
-    visibilityText: data?.visibility?.text,
-    weather: data?.weather,
-    clouds: data?.clouds,
-  })
-  const VisibilityIcon = visibilityVisual.icon
+  const windDeg = data?.wind?.degrees
+  const isVariableWind = String(data?.wind?.direction || '').toLowerCase().includes('variable')
+  const vis = data && visIcon(data.visibility?.main, data.weather, data.clouds)
 
   return (
-    <div className="min-h-screen relative px-4 py-6 md:px-10 md:py-10 lg:px-14 lg:py-12">
-      <header className="mb-10 lg:mb-12">
-        <div className="neo-card rounded-2xl border border-cyan-300/20 p-6 md:p-8 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-          <div className="space-y-3">
-            <div className="flex items-center gap-4">
-              <img
-                src="/logo-metar-stall.png"
-                alt="Logo METAR Stall"
-                className="h-12 w-12 md:h-14 md:w-14 rounded-xl object-cover border border-cyan-200/25 shadow-[0_0_25px_rgba(56,189,248,0.2)]"
-              />
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-300/20 bg-cyan-300/10 text-cyan-100 text-[11px] uppercase tracking-[0.2em] font-semibold">
-                <Radar size={14} />
-                Operaciones METAR
-              </div>
+    <div style={{ minHeight: '100vh', padding: '28px 20px', maxWidth: 1140, margin: '0 auto' }}>
+
+      {/* ── Header ── */}
+      <header style={{ marginBottom: 32 }}>
+        <div className="card" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+              background: 'var(--accent-bg)', border: '1px solid var(--accent-border)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Radar size={20} style={{ color: 'var(--accent-hi)' }} />
             </div>
-            <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-cyan-50">METAR Stall</h1>
-            <p className="text-cyan-100/70 text-sm md:text-base max-w-2xl leading-relaxed">
-              Consola meteorológica aeronáutica para lectura técnica y narración operativa del parte.
-            </p>
+            <div>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--accent-hi)' }}>
+                Meteorología Aeronáutica
+              </span>
+              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, lineHeight: 1.2 }}>METAR Stall</h1>
+            </div>
           </div>
 
-          <div className="flex flex-col items-start md:items-end gap-3">
-            <div className={cn('px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.16em]', statusTone)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 600, letterSpacing: '.10em', textTransform: 'uppercase',
+              padding: '4px 10px', borderRadius: 999,
+              background: apiStatus === 'online' ? 'var(--green-bg)' : 'var(--red-bg)',
+              color: apiStatus === 'online' ? 'var(--green-txt)' : 'var(--red-txt)',
+              border: `1px solid ${apiStatus === 'online' ? 'rgba(134,239,172,.20)' : 'rgba(252,165,165,.20)'}`,
+            }}>
               API {apiStatus}
-            </div>
+            </span>
             <button
-              onClick={() => setIsModalOpen(true)}
-              className="group flex items-center gap-2 bg-cyan-300 text-slate-950 px-5 py-3 rounded-xl hover:bg-cyan-200 transition-colors"
+              id="btn-nuevo-reporte"
+              onClick={() => setModal(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'var(--accent)', color: '#fff',
+                border: 'none', borderRadius: 10,
+                padding: '8px 16px', fontWeight: 600,
+                fontSize: 13, cursor: 'pointer', letterSpacing: '.04em',
+              }}
             >
-              <Plus size={16} className="group-hover:rotate-90 transition-transform" />
-              <span className="font-semibold uppercase tracking-[0.18em] text-xs">Nuevo reporte</span>
+              <Plus size={15} />
+              Nuevo reporte
             </button>
           </div>
         </div>
       </header>
 
-      <main>
-        {error && (
-          <div className="mb-8 rounded-xl border border-red-300/30 bg-red-400/10 p-4 flex items-start gap-3 text-red-100">
-            <AlertTriangle size={18} className="mt-0.5" />
-            <p className="text-sm font-medium">{error}</p>
-          </div>
-        )}
+      {/* ── Error ── */}
+      {error && (
+        <div style={{
+          display: 'flex', gap: 10, alignItems: 'flex-start',
+          marginBottom: 20, padding: '14px 16px',
+          background: 'var(--red-bg)', border: '1px solid rgba(252,165,165,.20)',
+          borderRadius: 12, color: 'var(--red-txt)', fontSize: 14,
+        }}>
+          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+          {error}
+        </div>
+      )}
 
-        {!data && !loading && (
-          <section className="neo-card rounded-2xl p-10 md:p-14 border border-cyan-300/20 text-cyan-100">
-            <div className="max-w-3xl mx-auto flex flex-col items-center text-center gap-5">
-              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/10 px-4 py-1 text-[11px] uppercase tracking-[0.2em] font-semibold">
-                <Activity size={14} />
-                Descubre METAR Stall
+      {/* ── Loading ── */}
+      {loading && (
+        <div className="card" style={{ padding: 48, textAlign: 'center' }}>
+          <RefreshCw size={28} className="spin" style={{ color: 'var(--accent-hi)', margin: '0 auto 12px' }} />
+          <p style={{ fontSize: 12, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--text-2)' }}>
+            Procesando mensaje
+          </p>
+        </div>
+      )}
+
+      {/* ── Empty state ── */}
+      {!data && !loading && (
+        <EmptyState onDemo={() => decode(DEMO)} onOpen={() => setModal(true)} />
+      )}
+
+      {/* ── Results ── */}
+      {data && !loading && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Row 1 — Overview */}
+          <div className="card-elevated fade-up" style={{ padding: '22px 24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700 }}>{data.airport_name}</h2>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-2)' }}>
+                  {data.station} · ICAO &nbsp;·&nbsp; {data.datetime}
+                </p>
               </div>
-              <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-cyan-50">
-                Convierte un METAR crudo en una lectura clara y útil
-              </h2>
-              <p className="text-sm md:text-base text-cyan-100/70 leading-relaxed">
-                Pega un mensaje real desde tu práctica y obtén una interpretación rápida de viento,
-                visibilidad, fenómenos, nubes, temperatura y QNH.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
-                  onClick={() => handleDecode(demoMetar)}
-                  className="bg-cyan-300 text-slate-950 px-5 py-3 rounded-xl hover:bg-cyan-200 transition-colors font-semibold uppercase tracking-[0.16em] text-xs"
-                >
-                  Probar ejemplo guiado
-                </button>
-                <button
-                  onClick={() => setIsModalOpen(true)}
-                  className="border border-cyan-300/30 bg-cyan-300/5 text-cyan-100 px-5 py-3 rounded-xl hover:bg-cyan-300/10 transition-colors font-semibold uppercase tracking-[0.16em] text-xs"
-                >
-                  Escribir mi METAR
-                </button>
-              </div>
+              <button
+                onClick={() => setModal(true)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  background: 'none', border: '1px solid var(--border)',
+                  borderRadius: 8, color: 'var(--text-2)',
+                  padding: '6px 12px', fontSize: 12, cursor: 'pointer',
+                }}
+              >
+                Cambiar <ChevronRight size={13} />
+              </button>
             </div>
-          </section>
-        )}
 
-        {loading && (
-          <div className="neo-card rounded-2xl p-12 md:p-16 border border-cyan-300/20 flex flex-col items-center justify-center text-cyan-100">
-            <RefreshCcw size={40} className="animate-spin mb-4" />
-            <p className="uppercase tracking-[0.28em] text-xs">Procesando mensaje</p>
+            {data.auto_report && (
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: 'var(--amber-bg)', border: '1px solid rgba(251,191,36,.20)',
+                borderRadius: 8, padding: '5px 12px', marginBottom: 16,
+                fontSize: 12, fontWeight: 600, letterSpacing: '.08em', textTransform: 'uppercase',
+                color: 'var(--amber-txt)',
+              }}>
+                Reporte automático (AUTO)
+              </div>
+            )}
+
+            {/* Token visualiser */}
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 10 }}>
+                Mensaje original — pasa el cursor sobre cada grupo
+              </p>
+              <MetarVisualiser raw={data.raw} />
+            </div>
+
+            {data.report_text && (
+              <>
+                <div className="divider" style={{ marginBottom: 14 }} />
+                <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.65, margin: 0 }}>
+                  {data.report_text}
+                </p>
+              </>
+            )}
           </div>
-        )}
 
-        {data && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
-            <section className="xl:col-span-2 neo-card rounded-2xl border border-cyan-300/20 p-6 md:p-8 flex flex-col gap-5">
-              <div className="flex items-start justify-between gap-4">
+          {/* Row 2 — Instrument grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 14 }}>
+
+            {/* Wind */}
+            <Card title="Viento" icon={Wind} delay={1}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <WindRose degrees={windDeg} isVariable={isVariableWind} />
                 <div>
-                  <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-cyan-50">{data.airport_name}</h2>
-                  <div className="mt-2 flex items-center gap-2 text-cyan-200/85">
-                    <Compass size={14} />
-                    <span className="text-sm font-medium tracking-wide">{data.station} · ICAO</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-base md:text-lg uppercase tracking-[0.12em] font-semibold text-cyan-100/90">
-                    {data.datetime}
-                  </div>
+                  <BigValue val={data.wind?.speed?.split(' ')[0]} unit="KT" />
+                  {data.wind?.gusts && (
+                    <p style={{ margin: '4px 0 0', fontSize: 12, color: '#fb923c' }}>
+                      Ráfagas {data.wind.gusts}
+                    </p>
+                  )}
+                  <Detail text={data.wind?.direction} />
+                  {data.wind?.variation && (
+                    <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-2)' }}>
+                      {data.wind.variation}
+                    </p>
+                  )}
                 </div>
               </div>
+            </Card>
 
-              {data.auto_report && (
-                <div className="rounded-xl border border-amber-300/35 bg-amber-300/15 p-3">
-                  <p className="text-xs md:text-sm uppercase tracking-[0.16em] font-semibold text-amber-100">
-                    Reporte automático (AUTO)
+            {/* Visibility */}
+            <Card title="Visibilidad" icon={Eye} delay={2}>
+              <BigValue
+                val={data.visibility?.main?.split(' ')[0] || data.visibility?.main}
+                unit={data.visibility?.main?.toLowerCase().includes('km') ? 'KM' : 'M'}
+              />
+              {vis && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  border: `1px solid ${vis.col}44`, borderRadius: 8,
+                  padding: '4px 10px', background: `${vis.col}11`,
+                  color: vis.col, fontSize: 12, fontWeight: 600, width: 'fit-content',
+                }}>
+                  <vis.Icon size={14} /> {vis.label}
+                </div>
+              )}
+              <Detail text={stripTrailingPeriod(data.visibility?.text)} />
+              {data.rvr?.map((r, i) => (
+                <p key={i} style={{ fontSize: 12, color: 'var(--text-2)', margin: '4px 0 0' }}>{r}</p>
+              ))}
+            </Card>
+
+            {/* Temperature */}
+            <Card title="Temperatura" icon={Thermometer} delay={1}>
+              <BigValue val={data.temperature?.air?.replace('ºC', '')} unit="ºC" />
+              <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
+                <div>
+                  <p style={{ fontSize: 10, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--text-3)', margin: '0 0 2px' }}>
+                    Rocío
+                  </p>
+                  <p style={{ fontSize: 20, fontWeight: 600, margin: 0 }}>
+                    {data.temperature?.dewpoint || '—'}
                   </p>
                 </div>
+              </div>
+            </Card>
+
+            {/* QNH */}
+            <Card title="QNH" icon={Gauge} delay={2}>
+              <BigValue val={data.qnh?.split(' ')[0] || '—'} unit="hPa" />
+              <Detail text={data.qnh_text} />
+            </Card>
+
+            {/* Phenomena */}
+            <Card title="Fenómenos meteorológicos" icon={Radar} delay={1}>
+              {data.weather?.length > 0 ? (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {data.weather.map((w, i) => (
+                    <li key={i} style={{ fontSize: 13, color: 'var(--text-2)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ color: 'var(--accent-hi)', lineHeight: 1.4 }}>•</span>
+                      {capitalizeFirst(w)}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Sin fenómenos significativos</p>
               )}
-
-              <div className="rounded-xl bg-slate-950/60 border border-cyan-300/15 p-4">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/50 mb-2">Mensaje original</p>
-                <code className="text-cyan-100 text-sm break-all font-mono">{data.raw}</code>
-              </div>
-
-              {condensedReportText && (
-                <div className="rounded-xl bg-cyan-300/5 border border-cyan-300/20 p-4">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-cyan-100/60 mb-2">Resumen narrativo</p>
-                  <p className="text-sm text-cyan-50/90 leading-relaxed">{condensedReportText}</p>
-                </div>
+              {data.recent_weather?.length > 0 && (
+                <>
+                  <div className="divider" style={{ marginTop: 10, marginBottom: 10 }} />
+                  <p style={{ fontSize: 10, letterSpacing: '.10em', textTransform: 'uppercase', color: 'var(--text-3)', margin: '0 0 6px' }}>
+                    Tiempo reciente
+                  </p>
+                  {data.recent_weather.map((w, i) => (
+                    <p key={i} style={{ margin: '2px 0 0', fontSize: 13, color: 'var(--text-2)' }}>
+                      <span style={{ color: 'var(--accent-hi)' }}>•</span> {capitalizeFirst(w)}
+                    </p>
+                  ))}
+                </>
               )}
-            </section>
+            </Card>
 
-            <InstrumentCard
-              title="Viento"
-              value={data.wind?.speed?.split(' ')[0]}
-              unit="KT"
-              icon={Wind}
-              detail={data.wind?.text || data.wind?.direction}
-              tone="lime"
-              extra={<WindRose degrees={data.wind?.degrees} isVariable={isVariableWind} />}
-            />
+            {/* Clouds */}
+            <Card title="Cobertura de nubes" icon={Cloud} delay={2}>
+              {data.clouds?.length > 0 ? (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {data.clouds.map((c, i) => (
+                    <li key={i} style={{ fontSize: 13, color: 'var(--text-2)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      <span style={{ color: '#94a3b8', lineHeight: 1.4 }}>☁</span>
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Sin nubes significativas</p>
+              )}
+            </Card>
 
-            <InstrumentCard
-              title="Visibilidad"
-              value={data.visibility?.main?.split(' ')[0] || data.visibility?.main}
-              unit={data.visibility?.main?.includes('km') ? 'KM' : 'M'}
-              icon={Eye}
-              detail={data.visibility?.text || data.visibility?.main}
-              tone="amber"
-              extra={
-                <div
-                  className={cn(
-                    'inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.14em] font-semibold',
-                    visibilityVisual.classes
-                  )}
-                >
-                  <VisibilityIcon size={18} />
-                  <span>{visibilityVisual.label}</span>
-                </div>
-              }
-            />
-
-            <section className="neo-card rounded-2xl p-6 border border-cyan-300/20 text-cyan-100">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-[11px] uppercase tracking-[0.22em] font-semibold opacity-80">Fenómenos</h3>
-                <Radar size={24} className="opacity-80" />
-              </div>
-              <div className="space-y-2">
-                {data.weather?.length > 0 ? (
-                  data.weather.map((w, i) => (
-                    <div key={`w-${i}`} className="flex items-start gap-2 text-sm leading-relaxed">
-                      <Dot size={24} className="mt-0.5 shrink-0" />
-                      <span className="font-medium">{w}</span>
-                    </div>
-                  ))
-                ) : (
-                  <span className="text-sm opacity-70">Sin fenómenos significativos</span>
-                )}
-
-                {data.recent_weather?.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-cyan-200/15">
-                    <p className="text-[10px] uppercase tracking-[0.18em] opacity-70 mb-2">Tiempo reciente</p>
-                    {data.recent_weather.map((w, i) => (
-                      <div key={`rw-${i}`} className="flex items-start gap-2 text-sm leading-relaxed">
-                        <Dot size={24} className="mt-0.5 shrink-0" />
-                        <span>{w}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="neo-card rounded-2xl p-6 border border-cyan-300/20 text-cyan-100">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-[11px] uppercase tracking-[0.22em] font-semibold opacity-80">Cielo y nubes</h3>
-                <Layers size={24} className="opacity-80" />
-              </div>
-              <div className="space-y-2">
-                {data.clouds?.length > 0 ? (
-                  data.clouds.map((c, i) => (
-                    <div key={`c-${i}`} className="flex items-start gap-2 text-sm leading-relaxed">
-                      <Cloud size={21} className="mt-0.5 shrink-0 opacity-80" />
-                      <span>{c}</span>
-                    </div>
-                  ))
-                ) : (
-                  <span className="text-sm opacity-70">Sin nubes significativas</span>
-                )}
-              </div>
-            </section>
-
-            <InstrumentCard
-              title="Temperatura"
-              value={data.temperature?.air?.replace('ºC', '')}
-              unit="ºC"
-              icon={Thermometer}
-              detail={data.temperature?.text || `Punto de rocío: ${data.temperature?.dewpoint || '---'}`}
-              tone="amber"
-            />
-
-            <InstrumentCard
-              title="QNH"
-              value={data.qnh?.split(' ')[0] || '---'}
-              unit="HPA"
-              icon={Navigation}
-              detail={data.qnh_text || 'Presión reducida a nivel del mar'}
-              tone="cyan"
-            />
           </div>
-        )}
-      </main>
 
-      <footer className="mt-16 pt-6 border-t border-cyan-300/15 flex flex-col md:flex-row gap-2 justify-between text-[11px] uppercase tracking-[0.18em] text-cyan-100/55">
-        <span>Centro de lectura meteorológica</span>
-        <span>2026 METAR Stall</span>
+          {/* Trends */}
+          {data.trends?.length > 0 && (
+            <div className="card fade-up" style={{ padding: '16px 20px' }}>
+              <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--text-3)', marginBottom: 10 }}>
+                Tendencias
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {data.trends.map((t, i) => (
+                  <span key={i} style={{
+                    fontSize: 13, color: 'var(--amber-txt)',
+                    background: 'var(--amber-bg)', border: '1px solid rgba(251,191,36,.20)',
+                    borderRadius: 8, padding: '4px 12px',
+                  }}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* ── Footer ── */}
+      <footer style={{
+        marginTop: 40, paddingTop: 16,
+        borderTop: '1px solid var(--border)',
+        display: 'flex', justifyContent: 'space-between',
+        fontSize: 11, letterSpacing: '.08em', color: 'var(--text-3)',
+        textTransform: 'uppercase',
+      }}>
+        <span>METAR Stall · Asignatura de Meteorología</span>
+        <span>2026</span>
       </footer>
 
-      <MetarModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onDecode={handleDecode} />
+      <MetarModal open={modal} onClose={() => setModal(false)} onDecode={decode} />
     </div>
   )
 }
-
-export default App

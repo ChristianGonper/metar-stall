@@ -389,10 +389,6 @@ class SpanishMetarParser:
 
         if rvr_descriptions:
             self.decoded["rvr"] = rvr_descriptions
-            if self.decoded["visibility"]["text"]:
-                self.decoded["visibility"]["text"] += ". " + " ".join(rvr_descriptions)
-            else:
-                self.decoded["visibility"]["text"] = " ".join(rvr_descriptions)
 
         vv_match = re.search(r"\bVV(\d{3}|///)\b", remaining_text)
         if vv_match:

@@ -1,69 +1,125 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ── Design tokens ───────────────────────────────────────────────────────── */
 :root {
   color-scheme: dark;
 
   /* Base surfaces */
-  --bg:        #09090b;        /* true near-black */
-  --surface:   #111116;        /* card background  */
-  --surface-2: #18181f;        /* elevated surface */
-  --border:    rgba(255,255,255,.07);
-  --border-hi: rgba(96,165,250,.25);   /* blue-400/25 */
+  --bg: #060609;
+  /* deeper near-black */
+  --surface: rgba(17, 17, 24, 0.45);
+  /* glass background */
+  --surface-2: rgba(26, 26, 38, 0.65);
+  /* elevated glass */
+  --border: rgba(255, 255, 255, 0.08);
+  /* subtle glass border */
+  --border-hi: rgba(96, 165, 250, 0.35);
+  /* brighter blue border */
 
   /* Text */
-  --text:      #f4f4f8;
-  --text-2:    rgba(244,244,248,.55);
-  --text-3:    rgba(244,244,248,.30);
+  --text: #f8f9fa;
+  --text-2: rgba(248, 249, 250, 0.65);
+  --text-3: rgba(248, 249, 250, 0.40);
 
-  /* Accent — blue */
-  --accent:    #3b82f6;         /* blue-500 */
-  --accent-hi: #60a5fa;         /* blue-400 */
-  --accent-bg: rgba(59,130,246,.10);
-  --accent-border: rgba(59,130,246,.22);
+  /* Accent — vibrant cyan/blue */
+  --accent: #0ea5e9;
+  /* sky-500 */
+  --accent-hi: #38bdf8;
+  /* sky-400 */
+  --accent-glow: rgba(14, 165, 233, 0.4);
+  --accent-bg: rgba(14, 165, 233, 0.12);
+  --accent-border: rgba(14, 165, 233, 0.30);
 
   /* Status colours */
-  --green-txt: #86efac;
-  --green-bg:  rgba(134,239,172,.10);
-  --red-txt:   #fca5a5;
-  --red-bg:    rgba(252,165,165,.10);
-  --amber-txt: #fbbf24;
-  --amber-bg:  rgba(251,191,36,.10);
+  --green-txt: #6ee7b7;
+  --green-bg: rgba(110, 231, 183, 0.12);
+  --red-txt: #fca5a5;
+  --red-bg: rgba(252, 165, 165, 0.12);
+  --amber-txt: #fcd34d;
+  --amber-bg: rgba(251, 191, 36, 0.12);
 }
 
 /* ── Reset ───────────────────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  background: var(--bg);
+  background-color: var(--bg);
+  /* Atmospheric multi-gradient background */
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.12), transparent 50%),
+    radial-gradient(circle at 85% 30%, rgba(99, 102, 241, 0.10), transparent 50%);
   color: var(--text);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-  /* Very subtle blue radial glow on upper-left */
-  background-image:
-    radial-gradient(ellipse 900px 600px at -10% -15%,
-      rgba(59,130,246,.07) 0%, transparent 70%);
+  min-height: 100vh;
 }
 
-code, .mono {
+/* Animated background glow */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.15), transparent 60%);
+  pointer-events: none;
+  z-index: -1;
+  animation: pulseGlow 8s ease-in-out infinite alternate;
+}
+
+@keyframes pulseGlow {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+code,
+.mono {
   font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
 }
 
-/* ── Card ────────────────────────────────────────────────────────────────── */
+/* ── Glass Cards ─────────────────────────────────────────────────────────── */
 .card {
   background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  /* inner top highlight */
+  border-radius: 20px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4), 0 0 20px 0 rgba(14, 165, 233, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .card-elevated {
   background: var(--surface-2);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border-hi);
-  border-radius: 16px;
+  border-top: 1px solid rgba(96, 165, 250, 0.5);
+  border-radius: 24px;
+  box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* ── Accent pill / tag ───────────────────────────────────────────────────── */
@@ -71,43 +127,75 @@ code, .mono {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 10px;
+  padding: 4px 12px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: .1em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   border: 1px solid var(--accent-border);
   background: var(--accent-bg);
   color: var(--accent-hi);
+  box-shadow: inset 0 0 12px rgba(14, 165, 233, 0.1);
+  backdrop-filter: blur(8px);
 }
 
 /* ── Subtle divider ──────────────────────────────────────────────────────── */
 .divider {
   height: 1px;
-  background: var(--border);
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  border: none;
 }
 
 /* ── Fade-in entrance animation ──────────────────────────────────────────── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+    filter: blur(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
 }
+
 .fade-up {
-  animation: fadeUp .35s cubic-bezier(.4,0,.2,1) both;
+  animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.fade-up-delay-1 { animation-delay: .06s; }
-.fade-up-delay-2 { animation-delay: .12s; }
-.fade-up-delay-3 { animation-delay: .18s; }
+
+.fade-up-delay-1 {
+  animation-delay: 0.08s;
+}
+
+.fade-up-delay-2 {
+  animation-delay: 0.16s;
+}
+
+.fade-up-delay-3 {
+  animation-delay: 0.24s;
+}
 
 /* ── Spin (loading) ──────────────────────────────────────────────────────── */
-@keyframes spin { to { transform: rotate(360deg); } }
-.spin { animation: spin .8s linear infinite; }
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+}
 
 /* ── Reduced motion ──────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: .01ms !important;
-    transition-duration: .01ms !important;
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }

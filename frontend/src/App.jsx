@@ -51,11 +51,13 @@ function WindRose({ degrees, isVariable }) {
 
   return (
     <div style={{ position: 'relative', width: 88, height: 88, flexShrink: 0 }}>
-      <svg viewBox="0 0 88 88" style={{ width: 88, height: 88 }}>
+      {/* Glow effect behind the wind rose */}
+      <div style={{ position: 'absolute', inset: 10, background: 'var(--accent)', filter: 'blur(20px)', opacity: 0.15, borderRadius: '50%' }} />
+      <svg viewBox="0 0 88 88" style={{ width: 88, height: 88, position: 'relative', zIndex: 1 }}>
         {/* outer ring */}
-        <circle cx="44" cy="44" r="42" fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="1" />
+        <circle cx="44" cy="44" r="42" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,.1)" strokeWidth="1" />
         {/* inner ring */}
-        <circle cx="44" cy="44" r="30" fill="none" stroke="rgba(255,255,255,.04)" strokeWidth="1" />
+        <circle cx="44" cy="44" r="30" fill="none" stroke="rgba(255,255,255,.06)" strokeWidth="1" strokeDasharray="2 4" />
         {/* ticks */}
         {ticks.map(d => {
           const r = (d * Math.PI) / 180
@@ -63,29 +65,29 @@ function WindRose({ degrees, isVariable }) {
           const y1 = 44 - 40 * Math.cos(r)
           const x2 = 44 + 35 * Math.sin(r)
           const y2 = 44 - 35 * Math.cos(r)
-          return <line key={d} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,.18)" strokeWidth={d % 90 === 0 ? 2 : 1} />
+          return <line key={d} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,.25)" strokeWidth={d % 90 === 0 ? 2 : 1} />
         })}
         {/* Cardinal labels */}
         {[['N', 44, 4], ['E', 84, 44], ['S', 44, 85], ['O', 4, 44]].map(([l, x, y]) => (
           <text key={l} x={x} y={y} textAnchor="middle" dominantBaseline="middle"
-            style={{ fill: 'rgba(255,255,255,.45)', fontSize: 9, fontFamily: 'Inter', fontWeight: 600 }}>
+            style={{ fill: 'rgba(255,255,255,.6)', fontSize: 9, fontFamily: 'Inter', fontWeight: 700 }}>
             {l}
           </text>
         ))}
         {/* Arrow */}
         {!isVariable && deg !== null && (
-          <g transform={`rotate(${deg}, 44, 44)`}>
+          <g transform={`rotate(${deg}, 44, 44)`} style={{ filter: 'drop-shadow(0 0 4px rgba(14, 165, 233, 0.6))' }}>
             <line x1="44" y1="44" x2="44" y2="16"
-              stroke="var(--accent-hi,#60a5fa)" strokeWidth="2" strokeLinecap="round" />
-            <polygon points="44,48 40.5,40 47.5,40"
-              fill="var(--accent-hi,#60a5fa)" />
+              stroke="var(--accent-hi)" strokeWidth="2.5" strokeLinecap="round" />
+            <polygon points="44,48 40,40 48,40"
+              fill="var(--accent-hi)" />
           </g>
         )}
         {isVariable && (
-          <circle cx="44" cy="44" r="6" fill="none" stroke="var(--accent-hi,#60a5fa)" strokeWidth="1.5" strokeDasharray="3 3" />
+          <circle cx="44" cy="44" r="6" fill="none" stroke="var(--accent-hi)" strokeWidth="2" strokeDasharray="3 3" style={{ filter: 'drop-shadow(0 0 4px rgba(14, 165, 233, 0.6))' }} />
         )}
         {/* Centre dot */}
-        {(isVariable || deg === null) && <circle cx="44" cy="44" r="3" fill="var(--accent-hi,#60a5fa)" />}
+        {(isVariable || deg === null) && <circle cx="44" cy="44" r="3" fill="var(--accent-hi)" style={{ filter: 'drop-shadow(0 0 4px rgba(14, 165, 233, 0.6))' }} />}
       </svg>
     </div>
   )
@@ -150,7 +152,7 @@ function MetarVisualiser({ raw }) {
   return (
     <div>
       {/* token strip */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 4px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 6px', marginBottom: 16 }}>
         {tokens.map((tok, i) => {
           const g = classifyToken(tok, i, tokens)
           const isHov = hovered === i
@@ -164,15 +166,17 @@ function MetarVisualiser({ raw }) {
               style={{
                 fontFamily: 'JetBrains Mono, monospace',
                 fontSize: 13,
-                fontWeight: 500,
-                padding: '3px 8px',
-                borderRadius: 6,
-                border: `1px solid ${g ? g.color + '44' : 'rgba(255,255,255,.08)'}`,
-                background: g ? g.color + (isHov ? '22' : '0d') : 'rgba(255,255,255,.04)',
+                fontWeight: 600,
+                padding: '4px 10px',
+                borderRadius: 8,
+                border: `1px solid ${g ? g.color + (isHov ? '88' : '44') : 'rgba(255,255,255,.08)'}`,
+                background: g ? g.color + (isHov ? '33' : '11') : 'rgba(255,255,255,.04)',
                 color: g ? g.color : 'var(--text-3)',
                 cursor: g ? 'default' : 'default',
-                transition: 'background .15s, border-color .15s',
+                transition: 'all .25s cubic-bezier(0.4, 0, 0.2, 1)',
                 lineHeight: 1.4,
+                boxShadow: isHov && g ? `0 0 12px ${g.color}44` : 'none',
+                transform: isHov && g ? 'translateY(-1px)' : 'none'
               }}
             >
               {tok}
@@ -182,15 +186,15 @@ function MetarVisualiser({ raw }) {
       </div>
 
       {/* legend */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px' }}>
         {TOKEN_GROUPS.filter(g => (
           g.id === 'station'
             ? tokens.some((t, i) => isStationToken(t, i, tokens))
             : tokens.some(t => g.regex.test(t))
         )).map(g => (
-          <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: g.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{g.label}</span>
+          <div key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: g.color, flexShrink: 0, boxShadow: `0 0 8px ${g.color}66` }} />
+            <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-2)' }}>{g.label}</span>
           </div>
         ))}
       </div>
@@ -210,19 +214,21 @@ function MetarModal({ open, onClose, onDecode }) {
       position: 'fixed', inset: 0, zIndex: 50,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       padding: 16,
-      background: 'rgba(0,0,0,.72)',
-      backdropFilter: 'blur(8px)',
+      background: 'rgba(0,0,0,.60)',
+      backdropFilter: 'blur(12px)',
+      animation: 'fadeUp 0.3s ease-out'
     }}>
-      <div className="card-elevated" style={{ width: '100%', maxWidth: 640, padding: 28 }}>
+      <div className="card-elevated" style={{ width: '100%', maxWidth: 640, padding: 32, position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -100, right: -100, width: 250, height: 250, background: 'var(--accent)', filter: 'blur(120px)', opacity: 0.15, pointerEvents: 'none' }} />
         {/* header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, position: 'relative' }}>
           <div>
-            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--accent-hi)', marginBottom: 4 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--accent-hi)', marginBottom: 6 }}>
               Decodificador METAR
             </p>
-            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: 'var(--text)' }}>Ingresar mensaje</h2>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: 'var(--text)' }}>Ingresar mensaje</h2>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-2)', padding: 4 }} aria-label="Cerrar">
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', color: 'var(--text-2)', padding: 6, borderRadius: '50%', transition: 'all 0.2s' }} aria-label="Cerrar" onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.1)'} onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.05)'}>
             <X size={20} />
           </button>
         </div>
@@ -234,50 +240,56 @@ function MetarModal({ open, onClose, onDecode }) {
           onKeyDown={e => e.key === 'Enter' && e.ctrlKey && submit()}
           placeholder="Ej: METAR LEMD 121330Z 21015G25KT 9999 FEW030 14/05 Q1012="
           style={{
-            width: '100%', height: 110,
-            background: 'rgba(255,255,255,.04)',
+            width: '100%', height: 120,
+            background: 'rgba(0,0,0,.2)',
             border: '1px solid var(--border)',
-            borderRadius: 10, padding: '12px 14px',
-            color: 'var(--text)', fontFamily: 'JetBrains Mono, monospace',
-            fontSize: 13, resize: 'none', outline: 'none',
-            transition: 'border-color .15s',
+            boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.2)',
+            borderRadius: 12, padding: '16px',
+            color: '#fff', fontFamily: 'JetBrains Mono, monospace',
+            fontSize: 14, resize: 'none', outline: 'none',
+            transition: 'border-color .2s, box-shadow .2s',
+            position: 'relative'
           }}
-          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-          onBlur={e => e.target.style.borderColor = 'var(--border)'}
+          onFocus={e => { e.target.style.borderColor = 'var(--accent-hi)'; e.target.style.boxShadow = 'inset 0 2px 8px rgba(0,0,0,0.2), 0 0 0 2px rgba(14,165,233,0.2)'; }}
+          onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'inset 0 2px 8px rgba(0,0,0,0.2)'; }}
         />
 
-        <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 8, marginBottom: 20 }}>
-          Ctrl + Enter para decodificar.
+        <p style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10, marginBottom: 24 }}>
+          Presiona <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>Ctrl</kbd> + <kbd style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, fontSize: 11 }}>Enter</kbd> para decodificar al instante.
         </p>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 12, position: 'relative' }}>
           <button
             onClick={submit}
             disabled={!input.trim()}
             style={{
               flex: 1,
               background: 'var(--accent)', color: '#fff',
-              border: 'none', borderRadius: 10,
-              padding: '11px 0', fontWeight: 600,
-              fontSize: 13, letterSpacing: '.06em',
+              border: '1px solid var(--accent-hi)', borderRadius: 10,
+              padding: '12px 0', fontWeight: 600,
+              fontSize: 14, letterSpacing: '.04em',
               cursor: input.trim() ? 'pointer' : 'not-allowed',
-              opacity: input.trim() ? 1 : .45,
-              transition: 'opacity .15s, background .15s',
+              opacity: input.trim() ? 1 : .5,
+              boxShadow: input.trim() ? '0 4px 16px rgba(14, 165, 233, 0.3)' : 'none',
+              transition: 'all .2s ease',
             }}
-            onMouseEnter={e => { if (input.trim()) e.target.style.background = 'var(--accent-hi)' }}
-            onMouseLeave={e => e.target.style.background = 'var(--accent)'}
+            onMouseEnter={e => { if (input.trim()) { e.target.style.background = 'var(--accent-hi)'; e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 233, 0.5)'; } }}
+            onMouseLeave={e => { if (input.trim()) { e.target.style.background = 'var(--accent)'; e.target.style.boxShadow = '0 4px 16px rgba(14, 165, 233, 0.3)'; } }}
           >
             Decodificar
           </button>
           <button
             onClick={onClose}
             style={{
-              padding: '11px 18px',
+              padding: '12px 24px',
               background: 'rgba(255,255,255,.05)',
               border: '1px solid var(--border)',
               borderRadius: 10, color: 'var(--text-2)',
-              fontSize: 13, cursor: 'pointer',
+              fontSize: 14, fontWeight: 500, cursor: 'pointer',
+              transition: 'all .2s ease'
             }}
+            onMouseEnter={e => { e.target.style.background = 'rgba(255,255,255,.1)'; e.target.style.color = '#fff'; }}
+            onMouseLeave={e => { e.target.style.background = 'rgba(255,255,255,.05)'; e.target.style.color = 'var(--text-2)'; }}
           >
             Cancelar
           </button>
@@ -310,26 +322,31 @@ function visIcon(main, weather, clouds) {
 // ── Empty state ───────────────────────────────────────────────────────────────
 function EmptyState({ onDemo, onOpen }) {
   return (
-    <div className="card fade-up" style={{ padding: '60px 32px', textAlign: 'center' }}>
-      <div className="pill" style={{ justifyContent: 'center', margin: '0 auto 20px' }}>
-        <Activity size={12} /> Listo para decodificar
+    <div className="card fade-up" style={{ padding: '80px 32px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: '-50%', left: '50%', transform: 'translateX(-50%)', width: 300, height: 300, background: 'var(--accent)', filter: 'blur(100px)', opacity: 0.1, borderRadius: '50%', pointerEvents: 'none' }} />
+      <div className="pill" style={{ justifyContent: 'center', margin: '0 auto 24px', position: 'relative' }}>
+        <Activity size={14} /> LISTO PARA DECODIFICAR
       </div>
-      <h2 style={{ margin: '0 0 10px', fontSize: 24, fontWeight: 600 }}>
-        Convierte un METAR en lenguaje claro
+      <h2 style={{ margin: '0 0 16px', fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+        Convierte cualquier METAR<br />en lenguaje claro
       </h2>
-      <p style={{ color: 'var(--text-2)', fontSize: 14, lineHeight: 1.6, maxWidth: 460, margin: '0 auto 28px' }}>
-        Pega cualquier mensaje METAR de aeropuertos españoles y obtén viento, visibilidad, nubes, temperatura y QNH de un vistazo.
+      <p style={{ color: 'var(--text-2)', fontSize: 15, lineHeight: 1.6, maxWidth: 480, margin: '0 auto 32px', position: 'relative' }}>
+        Pega un mensaje METAR de aeropuertos españoles y obtén viento, visibilidad, nubes, temperatura y QNH de un vistazo con una interfaz diseñada para impactar.
       </p>
-      <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', position: 'relative' }}>
         <button
           id="btn-demo"
           onClick={onDemo}
           style={{
             background: 'var(--accent)', color: '#fff',
-            border: 'none', borderRadius: 10,
-            padding: '10px 20px', fontWeight: 600,
-            fontSize: 13, cursor: 'pointer', letterSpacing: '.04em',
+            border: '1px solid var(--accent-hi)', borderRadius: 12,
+            padding: '12px 24px', fontWeight: 600,
+            fontSize: 14, cursor: 'pointer', letterSpacing: '.04em',
+            boxShadow: '0 4px 20px rgba(14, 165, 233, 0.4)',
+            transition: 'all 0.2s ease'
           }}
+          onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 6px 24px rgba(14, 165, 233, 0.6)'; }}
+          onMouseLeave={e => { e.target.style.transform = 'none'; e.target.style.boxShadow = '0 4px 20px rgba(14, 165, 233, 0.4)'; }}
         >
           Ver ejemplo guiado
         </button>
@@ -337,11 +354,15 @@ function EmptyState({ onDemo, onOpen }) {
           id="btn-open-modal"
           onClick={onOpen}
           style={{
-            background: 'none',
-            border: '1px solid var(--border)',
-            borderRadius: 10, color: 'var(--text-2)',
-            padding: '10px 20px', fontSize: 13, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: 12, color: 'var(--text)',
+            padding: '12px 24px', fontSize: 14, fontWeight: 500, cursor: 'pointer',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.2s ease'
           }}
+          onMouseEnter={e => { e.target.style.background = 'rgba(255,255,255,0.08)'; e.target.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+          onMouseLeave={e => { e.target.style.background = 'rgba(255,255,255,0.03)'; e.target.style.borderColor = 'rgba(255,255,255,0.1)'; }}
         >
           Escribir mi METAR
         </button>
@@ -435,12 +456,16 @@ export default function App() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 background: 'var(--accent)', color: '#fff',
-                border: 'none', borderRadius: 10,
-                padding: '8px 16px', fontWeight: 600,
+                border: '1px solid var(--accent-hi)', borderRadius: 10,
+                padding: '10px 18px', fontWeight: 600,
                 fontSize: 13, cursor: 'pointer', letterSpacing: '.04em',
+                boxShadow: '0 4px 16px rgba(14, 165, 233, 0.3)',
+                transition: 'all .2s ease'
               }}
+              onMouseEnter={e => { e.target.style.transform = 'translateY(-2px)'; e.target.style.boxShadow = '0 6px 20px rgba(14, 165, 233, 0.5)'; }}
+              onMouseLeave={e => { e.target.style.transform = 'none'; e.target.style.boxShadow = '0 4px 16px rgba(14, 165, 233, 0.3)'; }}
             >
-              <Plus size={15} />
+              <Plus size={16} />
               Nuevo reporte
             </button>
           </div>
